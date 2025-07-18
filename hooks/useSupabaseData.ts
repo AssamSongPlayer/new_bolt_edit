@@ -139,13 +139,13 @@ async function getPersonalizedSongs(userId: string, currentSong: Song, listenedS
       return { song, score };
     });
 
-  // 3. Sort and return top 10 for better variety
+  // 3. Sort and return top 5 initially
   const top5 = recommendations
     .sort((a, b) => b.score - a.score)
-    .slice(0, 10)
+    .slice(0, 5)
     .map((entry) => entry.song);
 
-  console.log('🎵 Personalized Top 10 Songs (excluding listened):', top5.map(s => `${s.name} by ${s.artist}`));
+  console.log('🎵 Personalized Top 5 Songs (excluding listened):', top5.map(s => `${s.name} by ${s.artist}`));
   console.log('🎵 Total listened songs excluded:', listenedSongs ? listenedSongs.size : 0);
   return top5;
 }

@@ -74,6 +74,7 @@ function MusicPlayerContent() {
   const [personalizedList, setPersonalizedList] = useState<Song[]>([]);
   const [currentSongIndex, setCurrentSongIndex] = useState<number>(0);
   const [listenedSongs, setListenedSongs] = useState<Set<string>>(new Set());
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
   
 const loadMoreSongs = () => {
   setDisplayCount(prev => prev + 15);
@@ -174,7 +175,7 @@ useEffect(() => {
       // Add to listened songs and log
       setListenedSongs(prev => {
         const newSet = new Set(prev);
-        newSet.add(lastPlayedSong.id);
+        newSet.add(lastPlayedSong.file_id.toString());
         console.log('🎵 Listened Songs List:', Array.from(newSet));
         return newSet;
       });
@@ -202,7 +203,7 @@ const handleSongPlay = async (song: Song) => {
   // Add to listened songs and log
   setListenedSongs(prev => {
     const newSet = new Set(prev);
-    newSet.add(song.id);
+    newSet.add(song.file_id.toString());
     console.log('🎵 Listened Songs List:', Array.from(newSet));
     return newSet;
   });
@@ -216,7 +217,7 @@ const handleSongPlay = async (song: Song) => {
   if (user) {
     const recs = await getPersonalizedSongs(user.id, song, listenedSongs);
     const filtered = recs.filter(s => !playedSongs.has(s.file_id));
-    const newPersonalizedList = [song, ...filtered.slice(0, 9)]; // Get more songs
+    const newPersonalizedList = [song, ...filtered.slice(0, 4)]; // Get 4 more songs for total of 5
     setPersonalizedList(newPersonalizedList);
     setCurrentSongIndex(0); // Reset to first song
   }
@@ -274,7 +275,7 @@ const handlePrevious = () => {
       // Add to listened songs and log
       setListenedSongs(prev => {
         const newSet = new Set(prev);
-        newSet.add(prevSong.id);
+        newSet.add(prevSong.file_id.toString());
         console.log('🎵 Listened Songs List:', Array.from(newSet));
         return newSet;
       });
@@ -359,7 +360,7 @@ const handleNext = async () => {
     // Add to listened songs and log
     setListenedSongs(prev => {
       const newSet = new Set(prev);
-      newSet.add(nextQueueSong.id);
+      newSet.add(nextQueueSong.file_id.toString());
       console.log('🎵 Listened Songs List:', Array.from(newSet));
       return newSet;
     });
@@ -368,7 +369,7 @@ const handleNext = async () => {
     if (user) {
       const recs = await getPersonalizedSongs(user.id, nextQueueSong, listenedSongs);
       const filtered = recs.filter(s => !playedSongs.has(s.file_id));
-      const newPersonalizedList = [nextQueueSong, ...filtered.slice(0, 9)];
+      const newPersonalizedList = [nextQueueSong, ...filtered.slice(0, 4)];
       setPersonalizedList(newPersonalizedList);
       setCurrentSongIndex(0);
     }
@@ -379,6 +380,29 @@ const handleNext = async () => {
       setImageUrls(prev => ({ ...prev, [nextQueueSong.img_id]: newUrl }));
     }
     return;
+  }
+
+  // Check if we're at the second-to-last song and need to fetch more
+  if (currentSongIndex === personalizedList.length - 2 && !isFetchingMore && user && currentSong) {
+    console.log('🔄 Fetching more songs at second-to-last position...');
+    setIsFetchingMore(true);
+    
+    try {
+      const newRecs = await getPersonalizedSongs(user.id, currentSong, listenedSongs);
+      const filtered = newRecs.filter(song => 
+        !playedSongs.has(song.file_id.toString()) && 
+        !personalizedList.some(existing => existing.file_id === song.file_id)
+      );
+      
+      if (filtered.length > 0) {
+        setPersonalizedList(prev => [...prev, ...filtered.slice(0, 5)]);
+        console.log('✅ Added more songs to personalized list');
+      }
+    } catch (error) {
+      console.error('❌ Error fetching more songs:', error);
+    } finally {
+      setIsFetchingMore(false);
+    }
   }
 
   // If no queue, proceed with personalized list
@@ -395,7 +419,7 @@ const handleNext = async () => {
     // Add to listened songs and log
     setListenedSongs(prev => {
       const newSet = new Set(prev);
-      newSet.add(nextSong.id);
+      newSet.add(nextSong.file_id.toString());
       console.log('🎵 Listened Songs List:', Array.from(newSet));
       return newSet;
     });
@@ -412,14 +436,6 @@ const handleNext = async () => {
       setImageUrls(prev => ({ ...prev, [nextSong.img_id]: newUrl }));
     }
 
-    // If nearing end of list, fetch more recommendations
-    if (nextIndex >= personalizedList.length - 3 && user) {
-      const newRecs = await getPersonalizedSongs(user.id, nextSong, listenedSongs);
-      const filtered = newRecs.filter(song => !playedSongs.has(song.file_id));
-      if (filtered.length > 0) {
-        setPersonalizedList(prev => [...prev, ...filtered.slice(0, 6)]);
-      }
-    }
   } else {
     // If we've reached the end of personalized list, get new recommendations
     if (user && currentSong) {
@@ -436,13 +452,13 @@ const handleNext = async () => {
         // Add to listened songs and log
         setListenedSongs(prev => {
           const newSet = new Set(prev);
-          newSet.add(nextSong.id);
+          newSet.add(nextSong.file_id.toString());
           console.log('🎵 Listened Songs List:', Array.from(newSet));
           return newSet;
         });
         
         // Create new personalized list starting with this song
-        const newPersonalizedList = [nextSong, ...filtered.slice(1, 10)];
+        const newPersonalizedList = [nextSong, ...filtered.slice(1, 5)];
         setPersonalizedList(newPersonalizedList);
         setCurrentSongIndex(0);
         
